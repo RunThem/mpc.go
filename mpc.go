@@ -13,9 +13,9 @@ const (
 
 	m_and
 	m_or
-	m_maybe // +
-	m_mayb1 //
-	m_mayb0 // ?
+	m_maybe // ? 零次或一次
+	m_mayb1 // + 一次或多次
+	m_mayb0 // * 零次或多次
 )
 
 type Mpc struct {
