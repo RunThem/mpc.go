@@ -2,6 +2,7 @@ package mpc
 
 import (
 	"bytes"
+
 	"github.com/RunThem/u"
 )
 
@@ -16,6 +17,7 @@ const (
 	tok_IDENT = "IDENT"
 	tok_REGEX = "REGEX"
 	tok_MATCH = "MATCH"
+	tok_END   = "END"
 
 	tok_DEFINE = "="
 	tok_DEFEND = ";"
@@ -46,85 +48,90 @@ type lexer struct {
 func (mod *lexer) next() token {
 	read := func() byte {
 		mod.idx++
-		return mod.code[mod.idx]
+		return mod.code[mod.idx-1]
 	}
 
 	peek := func(count int) byte {
 		return mod.code[mod.idx+count]
 	}
 
+	// skip white space characters.
 	for mod.idx < len(mod.code) {
-		ch := read()
-
-		if u.IsSpace(ch) {
-			continue
+		if ch := peek(0); !u.IsSpace(ch) {
+			break
 		}
 
-		switch ch {
-		case ';', '=', '|', '?', '+', '*', '(', ')':
-			return newToken(string(ch), string(ch))
+		read()
+	}
 
-		case '\'':
-			// match
-			var match bytes.Buffer
+	if mod.idx >= len(mod.code) {
+		return newToken(tok_END, "END")
+	}
 
-			for {
-				ch = read()
+	var tok token
+	var ch byte = read()
 
-				if ch == '\\' {
-					switch peek(0) {
-					case '\'':
-						match.WriteByte('\'')
-					case 'n':
-						match.WriteByte('\n')
-					case 'r':
-						match.WriteByte('\r')
-					case 't':
-						match.WriteByte('\t')
-					default:
-						panic("\\?")
-					}
+	switch ch {
+	case ';', '=', '|', '?', '+', '*', '(', ')':
+		tok = newToken(string(ch), string(ch))
 
-					read()
-				} else if ch == '\'' {
-					break
-				} else {
+	case '\'':
+		// match
+		var match bytes.Buffer
+
+		for mod.idx < len(mod.code) {
+			if ch = read(); ch == '\\' {
+				charMap := map[byte]byte{'\'': '\'', 'n': '\n', 'r': '\r', 't': '\t'}
+				if ch, ok := charMap[read()]; ok == true {
 					match.WriteByte(ch)
+				} else {
+					panic("\\?")
 				}
+			} else if ch != '\'' {
+				match.WriteByte(ch)
+			} else {
+				break
 			}
+		}
 
-			return newToken(tok_MATCH, match.String())
+		tok = newToken(tok_MATCH, match.String())
 
-		case '$':
-			// ident
-			var ident bytes.Buffer
+	case '$':
+		// ident
+		var ident bytes.Buffer
 
-			for u.IsAlnum(peek(0)) || peek(0) == '_' {
+		for u.IsAlnum(peek(0)) || peek(0) == '_' {
+			ident.WriteByte(read())
+		}
+
+		for mod.idx < len(mod.code) {
+			if ch = peek(0); u.IsAlnum(ch) || ch == '_' {
 				ident.WriteByte(read())
+			} else {
+				break
 			}
+		}
 
-			return newToken(tok_IDENT, ident.String())
+		tok = newToken(tok_IDENT, ident.String())
 
-		default:
-			// regex
-			var regex bytes.Buffer
+	default:
+		// regex
+		var regex bytes.Buffer
 
-			if ch == 'R' && peek(0) == '<' {
-				read()
+		if ch == 'R' && peek(0) == '<' {
+			read()
 
-				for {
-					ch = read()
-					if ch == '>' && peek(0) == 'R' {
-						break
-					}
-
+			for mod.idx < len(mod.code) {
+				if ch = read(); ch != '>' || peek(0) != 'R' {
 					regex.WriteByte(ch)
+				} else {
+					break
 				}
-
-				return newToken(tok_REGEX, regex.String())
 			}
+
+			tok = newToken(tok_REGEX, regex.String())
 		}
 	}
 
-	return newToken(tok_IDENT, mod.code[mod.idx:])
+	return tok
 }

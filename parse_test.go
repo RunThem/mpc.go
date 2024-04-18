@@ -13,4 +13,7 @@ func TestNext(t *testing.T) {
 
 	lex := &lexer{code: code, idx: 0}
 
+	for tok := lex.next(); tok.tokenType != tok_END; tok = lex.next() {
+		t.Log(tok)
+	}
 }
