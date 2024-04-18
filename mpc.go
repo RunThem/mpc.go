@@ -1,6 +1,9 @@
 package mpc
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/RunThem/u"
 )
 
@@ -21,12 +24,13 @@ const (
 )
 
 type node struct {
-	tag   mtag
-	name  string
-	match string
+	tag  mtag
+	name string
 
+	match  string
+	regex  *regexp.Regexp
 	parent *node
-	childs *u.Vec[*node]
+	*u.Vec[*node]
 }
 
 type Mpc struct {
@@ -34,10 +38,67 @@ type Mpc struct {
 	root    *node
 	refs    map[string]*node
 	cur     *node
+
+	input string
+	idx   int
+	col   int
+	row   int
+}
+
+type Ast struct {
+	content string
+
+	*u.Vec[*Ast]
 }
 
 func New(comment string) *Mpc {
 	return &Mpc{comment: comment, root: nil, refs: make(map[string]*node)}
+}
+
+func match(match string, parent *node) *node {
+	return &node{tag: m_match, match: match, parent: parent}
+}
+
+func regex(regex string, parent *node) *node {
+	return &node{tag: m_regex, match: regex, parent: parent}
+}
+
+func addChild(root *node, childs ...*node) {
+	for _, it := range childs {
+		root.PutBack(it)
+	}
+}
+
+func (mod *Mpc) parseMatch(root *node) *Ast {
+	if strings.HasPrefix(mod.input[mod.idx:], root.match) {
+		mod.idx += len(root.match)
+		return &Ast{content: root.match}
+	}
+
+	return nil
+}
+
+func (mod *Mpc) parseRegex(root *node) *Ast {
+	result := root.regex.FindString(mod.input[mod.idx:])
+	if result == "" {
+		return nil
+	}
+
+	mod.idx += len(result)
+
+	return &Ast{content: result}
+}
+
+func (mod *Mpc) parseAndExpr(root *node) *Ast {
+	idx := mod.idx
+	ast := &Ast{}
+
+	for _, it := range root.Range(true) {
+	}
+}
+
+func (mod *Mpc) parseOrExpr(root *node) *Ast {
+
 }
 
 func (mod *Mpc) Def(name string, other ...any) *Mpc {
@@ -50,6 +111,8 @@ func (mod *Mpc) Def(name string, other ...any) *Mpc {
 
 	return mod
 }
+
+/*
 
 func (mod *Mpc) R(regex ...string) *Mpc {
 	return mod
@@ -111,8 +174,12 @@ func main() {
 		E().Maybe('*')
 
 	calc.Def("term").At("factor").Sub(
-		calc.Def("").Sub(
-			calc.Def("").M("*", "/"),
+		calc.Sub(
+			calc.M("*", "/"),
 		).At("factor"),
 	).Maybe('*')
+
+	// calc.Def("expr", m.R("[0-9]*"), m.Or, m.M("("), )
 }
+
+*/
