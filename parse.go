@@ -6,10 +6,6 @@ import (
 	"github.com/RunThem/u"
 )
 
-// func New(code string) *Mpc {
-//
-// }
-
 /*
  * token
  */
@@ -40,13 +36,16 @@ func newToken(tokenType string, literal string) token {
 	return token{tokenType: tokenType, literal: literal}
 }
 
+/*
+ * lexer
+ */
 type lexer struct {
 	code string
 	idx  int
 }
 
 func (mod *lexer) next() token {
-	read := func() byte {
+	next := func() byte {
 		mod.idx++
 		return mod.code[mod.idx-1]
 	}
@@ -61,7 +60,7 @@ func (mod *lexer) next() token {
 			break
 		}
 
-		read()
+		next()
 	}
 
 	if mod.idx >= len(mod.code) {
@@ -69,7 +68,7 @@ func (mod *lexer) next() token {
 	}
 
 	var tok token
-	var ch byte = read()
+	var ch byte = next()
 
 	switch ch {
 	case ';', '=', '|', '?', '+', '*', '(', ')':
@@ -80,9 +79,9 @@ func (mod *lexer) next() token {
 		var match bytes.Buffer
 
 		for mod.idx < len(mod.code) {
-			if ch = read(); ch == '\\' {
+			if ch = next(); ch == '\\' {
 				charMap := map[byte]byte{'\'': '\'', 'n': '\n', 'r': '\r', 't': '\t'}
-				if ch, ok := charMap[read()]; ok == true {
+				if ch, ok := charMap[next()]; ok == true {
 					match.WriteByte(ch)
 				} else {
 					panic("\\?")
@@ -101,12 +100,12 @@ func (mod *lexer) next() token {
 		var ident bytes.Buffer
 
 		for u.IsAlnum(peek(0)) || peek(0) == '_' {
-			ident.WriteByte(read())
+			ident.WriteByte(next())
 		}
 
 		for mod.idx < len(mod.code) {
 			if ch = peek(0); u.IsAlnum(ch) || ch == '_' {
-				ident.WriteByte(read())
+				ident.WriteByte(next())
 			} else {
 				break
 			}
@@ -119,10 +118,10 @@ func (mod *lexer) next() token {
 		var regex bytes.Buffer
 
 		if ch == 'R' && peek(0) == '<' {
-			read()
+			next()
 
 			for mod.idx < len(mod.code) {
-				if ch = read(); ch != '>' || peek(0) != 'R' {
+				if ch = next(); ch != '>' || peek(0) != 'R' {
 					regex.WriteByte(ch)
 				} else {
 					break
@@ -135,3 +134,31 @@ func (mod *lexer) next() token {
 
 	return tok
 }
+
+func (mod *lexer) peek() token {
+	idx := mod.idx
+	tok := mod.next()
+	mod.idx = idx
+
+	return tok
+}
+
+/*
+ * parser
+ */
+
+// func New(code string) *node {
+// 	lex := lexer{code: code, idx: 0}
+// 	defTable := make(map[string]*node)
+
+// 	parse(&lex, defTable)
+// }
+
+// func parse(lex *lexer, defTable map[string]*node) {
+// 	tok := lex.next()
+
+// define *Mpc
+// 	if tok.tokenType == tok_IDENT && lex.peek().tokenType == tok_DEFINE {
+// 		defTable[tok.literal] = newMpc(m_and, tok.literal, "", nil)
+// 	}
+// }
